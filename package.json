@@ -1,0 +1,22 @@
+{
+  "name": "protfolio-back-end",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js --watch ./"
+  },
+  "dependencies": {
+    "body-parser": "1.19.0",
+    "cors": "^2.8.5",
+    "debug": "~2.6.9",
+    "express": "~4.16.1",
+    "firebase-admin": "^10.0.0",
+    "mongodb": "^3.5.9",
+    "mongoose": "^5.9.25",
+    "multer": "^1.4.2"
+  },
+  "devDependencies": {
+    "dotenv": "^10.0.0"
+  }
+}
