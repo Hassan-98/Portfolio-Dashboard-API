@@ -4,9 +4,13 @@ const authenticated = (req, res, next) => {
     try {
         const token = req.cookies.portfolioCurrentAdmin;
 
+        console.log(token);
+
         if (!token) return res.send({err: "Authorization Required"});
 
         const {user} = jwt.verify(token, process.env.JWT_SECRET);
+        
+        console.log(user);
 
         if (!user) return res.send({err: "Authorization Required"});
 
