@@ -1,68 +1,93 @@
 const express = require('express');
 const router = express.Router();
-const EXPS = require('../Models/exp')
+const EXPS = require('../Models/exp');
+const WaitUntil = require("../Utils/Waiting");
+const { authenticated } = require("../Middlewares/authentication");
 
-
-/* ######## HANDLE APIs ######## */
-
-// Get All
-router.get('/', async (req, res, next) => {
+// Get All Experiences
+router.get('/', async (req, res) => {
   try {
     if (req.query.id) {
       var expData = await EXPS.findById(req.query.id)
     } else {
-      var expData = await EXPS.find({})
+      var expData = await EXPS.find({}, null, { sort: { priority: 1 } });
     }
-    res.send(expData)
+    res.send({success: expData})
   } catch (e) {
-    res.send(e.message)
+    res.send({err: e.message});
   }
 });
 
-// Add New
-router.post('/', async (req, res, next) => {
+// Add New Experience
+router.post('/', authenticated, async (req, res) => {
   try {
-    const Data = {
-      name: req.body.name,
-      details: req.body.details,
-      dateFrom: req.body.dateFrom,
-      dateTo: req.body.dateTo,
-      type: req.body.type
-    }
-    const project = new EXPS(Data)
-    const expData = await project.save()
-    res.send(expData)
+    var priority = 1;
+
+    const AllExperiences = await EXPS.find({});
+
+    if (AllExperiences.length) priority = AllExperiences.length + 1;
+
+    const experience = await EXPS.create({...req.body, priority});
+
+    res.send({success: experience});
   } catch (e) {
-    res.send(e.message)
+    res.send({err: e.message});
   }
 });
 
-// Edit
-router.patch('/', async (req, res, next) => {
+// Edit Experience
+router.patch('/', authenticated, async (req, res) => {
   try {
     const ID = req.query.id
 
-    const project = await EXPS.findById(ID)
+    const experience = await EXPS.findById(ID)
 
     Object.keys(req.body).forEach(key => {
-      project[key] = req.body[key]
+      experience[key] = req.body[key]
     })
 
-    const expData = await project.save()
-    res.send(expData)
+    const expData = await experience.save()
+    res.send({success: expData})
   } catch (e) {
-    res.send(e.message)
+    res.send({err: e.message});
   }
 });
 
-// Delete
-router.delete('/', async (req, res, next) => {
+// Edit Experiences Order
+router.patch("/updateOrder", authenticated, async (req, res) => {
   try {
-    const ID = req.query.id
-    const project = await EXPS.findByIdAndDelete(ID)
-    res.send('Deleted')
+    const newOrderedExps = req.body;
+
+    const exps = await CLIENTS.find({});
+
+    const editOrder = (EndWaiting) => {
+      exps.forEach(async (exp, idx) => {
+        var orderedExp = newOrderedExps.find(({_id}) => _id == exp._id);
+      
+        exp.priority = (+orderedExp.priority);
+  
+        await exp.save();
+        
+        if (exps.length >= idx + 1) EndWaiting();
+      });
+    }
+
+    await WaitUntil(editOrder);
+
+    res.send({success: "Order Success"});
   } catch (e) {
-    res.send(e.message)
+    res.send({err: e.message});
+  }
+});
+
+// Delete Experience
+router.delete('/', authenticated, async (req, res) => {
+  try {
+    await EXPS.findByIdAndDelete(req.query.id)
+
+    res.send({success: 'Deleted'})
+  } catch (e) {
+    res.send({err: e.message});
   }
 });
 

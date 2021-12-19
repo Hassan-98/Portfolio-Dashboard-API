@@ -2,123 +2,138 @@ const express = require('express');
 const router = express.Router();
 const CLIENTS = require('../Models/clients')
 const Multer = require('multer');
-const bucket = require("../Utils/Storage")
+const { bucket, uploadImageToStorage, extractName } = require("../Utils/Storage");
+const WaitUntil = require("../Utils/Waiting");
+const { authenticated } = require("../Middlewares/authentication");
 
 const multer = Multer({
-  storage: Multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024
-  }
+  storage: Multer.memoryStorage()
 });
 
-
-/* ######## HANDLE APIs ######## */
-
-// Get All Portfolio Projects
-router.get('/', async (req, res, next) => {
+// Get All Clients
+router.get('/', async (req, res) => {
   try {
     if (req.query.id) {
-      var clientsData = await CLIENTS.findById(req.query.id)
+      var clientsData = await CLIENTS.findById(req.query.id);
     } else {
-      var clientsData = await CLIENTS.find({})
+      var clientsData = await CLIENTS.find({}, null, { sort: { priority: 1 } });
     }
-    res.send(clientsData)
+
+    res.send({success: clientsData})
   } catch (e) {
-    res.send(e.message)
+    res.send({err: e.message});
   }
 });
 
-// Add New Portfolio Project
-router.post('/', multer.single('picture'), async (req, res, next) => {
+// Add New Client
+router.post('/', authenticated, multer.single('picture'), async (req, res) => {
   try {
-    const URL = await uploadImageToStorage(req.file)
+    var URL = null;
+
+    try {
+      URL = await uploadImageToStorage(req.file);
+    } catch (e) { 
+      throw new Error(e) 
+    }
+
+    var priority = 1;
+
+    const AllClients = await CLIENTS.find({});
+
+    if (AllClients.length) priority = AllClients.length + 1;
+
     const clientData = {
       name: req.body.name,
       details: req.body.details,
-      picture: URL
+      picture: URL,
+      priority
     }
-    const project = new CLIENTS(clientData)
-    const clientsData = await project.save()
-    res.send(clientsData)
+
+    const client = await CLIENTS.create(clientData);
+
+    res.send({success: client})
   } catch (e) {
-    res.send(e.message)
+    res.send({err: e.message});
   }
 });
 
-// Edit Portfolio Project
-router.patch('/', multer.single('picture'), async (req, res, next) => {
+// Edit Client
+router.patch('/', authenticated, multer.single('picture'), async (req, res) => {
   try {
-    const ID = req.query.id
-    var URL = false;
+    const ID = req.query.id;
+
+    const client = await CLIENTS.findById(ID)
+
+    Object.keys(req.body).forEach(key => { client[key] = req.body[key] })
+
+    var URL = null;
+
     if (req.file) {
-      URL = await uploadImageToStorage(req.file)
+      try {
+        URL = await uploadImageToStorage(req.file);
+      } catch (e) { 
+        throw new Error(e) 
+      }
     }
-
-    const project = await CLIENTS.findById(ID)
-
-    Object.keys(req.body).forEach(key => {
-      project[key] = req.body[key]
-    })
 
     if (URL) {
-      const oldFileName = extractName(project.picture)
-      await bucket.file(oldFileName).delete()
-      project.picture = URL;
+      const oldFileName = extractName(client.picture);
+
+      try { await bucket.file(oldFileName).delete() } catch {};
+
+      client.picture = URL;
     }
 
-    const clientsData = await project.save()
-    res.send(clientsData)
+    const clientsData = await client.save();
+
+    res.send({success: clientsData})
   } catch (e) {
-    res.send(e.message)
+    res.send({err: e.message});
   }
 });
 
-// Delete Portfolio Project
-router.delete('/', async (req, res, next) => {
+// Edit Clients Order
+router.patch("/updateOrder", authenticated, async (req, res) => {
+  try {
+    const newOrderedClients = req.body;
+
+    const clients = await CLIENTS.find({});
+
+    const editOrder = (EndWaiting) => {
+      clients.forEach(async (client, idx) => {
+        var orderedClient = newOrderedClients.find(({_id}) => _id == client._id);
+      
+        client.priority = (+orderedClient.priority);
+  
+        await client.save();
+        
+        if (clients.length >= idx + 1) EndWaiting();
+      });
+    }
+
+    await WaitUntil(editOrder);
+
+    res.send({success: "Order Success"});
+  } catch (e) {
+    res.send({err: e.message});
+  }
+});
+
+// Delete Client
+router.delete('/', authenticated, async (req, res) => {
   try {
     const ID = req.query.id
-    const project = await CLIENTS.findByIdAndDelete(ID)
-    const oldFileName = extractName(project.picture)
-    await bucket.file(oldFileName).delete()
-    res.send('Deleted')
+
+    const client = await CLIENTS.findByIdAndDelete(ID)
+
+    const oldFileName = extractName(client.picture);
+
+    try { await bucket.file(oldFileName).delete() } catch {};
+
+    res.send({success: 'Deleted'})
   } catch (e) {
-    res.send(e.message)
+    res.send({err: e.message});
   }
 });
-
-// Upload Function
-const uploadImageToStorage = (file) => {
-  return new Promise((resolve, reject) => {
-    if (!file) {
-      reject('No image file');
-    }
-    let newFileName = `${file.originalname}_${Date.now()}`;
-
-    let fileUpload = bucket.file(newFileName);
-
-    const blobStream = fileUpload.createWriteStream({
-      metadata: {
-        contentType: file.mimetype
-      }
-    });
-
-    blobStream.on('error', (error) => {
-      reject(error);
-    });
-
-    blobStream.on('finish', () => {
-      // The public URL can be used to directly access the file via HTTP.
-      const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURI(fileUpload.name)}?alt=media`;
-      resolve(publicUrl);
-    });
-
-    blobStream.end(file.buffer);
-  });
-}
-
-function extractName (url) {
-  var spUrl = url.split('/')
-  return spUrl[spUrl.length - 1].split('?')[0]
-}
 
 module.exports = router;

@@ -17,13 +17,18 @@ const schema = mongoose.Schema({
     },
     priority: {
       type: Number,
-      required: true
+      required: true,
+      default: 0
     },
     thumb: {
       type: String,
       required: true,
       trim: true
-    }
+    },
+    views: {
+      type: Number,
+      default: 1
+    },
 })
 
 module.exports = mongoose.model('Project', schema)

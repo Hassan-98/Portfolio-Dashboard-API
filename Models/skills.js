@@ -10,6 +10,11 @@ const schema = mongoose.Schema({
       type: String,
       required: true,
       trim: true
+    },
+    priority: {
+      type: Number,
+      required: true,
+      default: 0
     }
 })
 

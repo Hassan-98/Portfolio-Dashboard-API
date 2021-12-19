@@ -2,114 +2,147 @@ const express = require('express');
 const router = express.Router();
 const CERT = require('../Models/cert')
 const Multer = require('multer');
-const bucket = require("../Utils/Storage")
+const { bucket, uploadImageToStorage, extractName } = require("../Utils/Storage");
+const WaitUntil = require("../Utils/Waiting");
+const { authenticated } = require("../Middlewares/authentication");
 
 const multer = Multer({
-  storage: Multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024
-  }
+  storage: Multer.memoryStorage()
 });
 
-
-/* ######## HANDLE APIs ######## */
-
-// Get All 
-router.get('/', async (req, res, next) => {
+// Get All Certificates
+router.get('/', async (req, res) => {
   try {
     if (req.query.id) {
       var certData = await CERT.findById(req.query.id)
     } else {
-      var certData = await CERT.find({})
+      var certData = await CERT.find({}, null, { sort: { priority: 1 } });
     }
-    res.send(certData)
+
+    res.send({success: certData});
   } catch (e) {
-    res.send(e.message)
+    res.send({err: e.message});
   }
 });
 
-// Add New
-router.post('/', multer.single('cert'), async (req, res, next) => {
+// Add New Certificate
+router.post('/', authenticated, multer.single('cert'), async (req, res) => {
   try {
-    const URL = await uploadImageToStorage(req.file)
-    const cert = new CERT({ cert: URL })
-    const Data = await cert.save()
-    res.send(Data)
+    var URL = null;
+
+    try {
+      URL = await uploadImageToStorage(req.file);
+    } catch (e) { 
+      throw new Error(e) 
+    }
+
+    var priority = 1;
+
+    const AllCerts = await CERT.find({});
+
+    if (AllCerts.length) priority = AllCerts.length + 1;
+
+    const cert = await CERT.create({ cert: URL, priority });
+
+    res.send({success: cert})
   } catch (e) {
-    res.send(e.message)
+    res.send({err: e.message});
   }
 });
 
-// Edit
-router.patch('/', multer.single('cert'), async (req, res, next) => {
+// Increase Project Views
+router.post("/view", async (req, res) => {
   try {
-    const ID = req.query.id
-    var URL = false;
+    const certId = req.query.cid;
+
+    if (!certId) return res.send({err: "Invalid Certificate Id"});
+
+    const cert = await CERT.findById(certId);
+      
+    cert.views += 1;
+
+    await cert.save();
+
+    res.send({success: "View Add Success"});
+  } catch (e) {
+    res.send({err: e.message});
+  }
+});
+
+// Edit Certificate
+router.patch('/', authenticated, multer.single('cert'), async (req, res) => {
+  try {
+    const ID = req.query.id;
+
+    const cert = await CERT.findById(ID);
+
+    var URL = null;
+
     if (req.file) {
-      URL = await uploadImageToStorage(req.file)
+      try {
+        URL = await uploadImageToStorage(req.file);
+      } catch (e) { 
+        throw new Error(e) 
+      }
     }
-
-    const cert = await CERT.findById(ID)
 
     if (URL) {
       const oldFileName = extractName(cert.cert)
-      await bucket.file(oldFileName).delete()
+
+      try { await bucket.file(oldFileName).delete() } catch {};
+
       cert.cert = URL;
     }
 
-    const certData = await cert.save()
-    res.send(certData)
+    const certData = await cert.save();
+    res.send({success: certData})
   } catch (e) {
-    res.send(e.message)
+    res.send({err: e.message});
   }
 });
 
-// Delete
-router.delete('/', async (req, res, next) => {
+// Edit Certificates Order
+router.patch("/updateOrder", authenticated, async (req, res) => {
   try {
-    const ID = req.query.id
-    const cert = await CERT.findByIdAndDelete(ID)
-    const oldFileName = extractName(cert.cert)
-    await bucket.file(oldFileName).delete()
-    res.send('Deleted')
+    const newOrderedCerts = req.body;
+
+    const certs = await CERT.find({});
+
+    const editOrder = (EndWaiting) => {
+      certs.forEach(async (cert, idx) => {
+        var orderedCert = newOrderedCerts.find(({_id}) => _id == cert._id);
+      
+        cert.priority = (+orderedCert.priority);
+  
+        await cert.save();
+        
+        if (certs.length >= idx + 1) EndWaiting();
+      });
+    }
+
+    await WaitUntil(editOrder);
+
+    res.send({success: "Order Success"});
   } catch (e) {
-    res.send(e.message)
+    res.send({err: e.message});
   }
 });
 
-// Upload Function
-const uploadImageToStorage = (file) => {
-  return new Promise((resolve, reject) => {
-    if (!file) {
-      reject('No image file');
-    }
-    let newFileName = `${file.originalname}_${Date.now()}`;
+// Delete Certificate
+router.delete('/', authenticated, async (req, res) => {
+  try {
+    const ID = req.query.id;
 
-    let fileUpload = bucket.file(newFileName);
+    const cert = await CERT.findByIdAndDelete(ID);
 
-    const blobStream = fileUpload.createWriteStream({
-      metadata: {
-        contentType: file.mimetype
-      }
-    });
+    const oldFileName = extractName(cert.cert);
 
-    blobStream.on('error', (error) => {
-      reject(error);
-    });
+    try { await bucket.file(oldFileName).delete() } catch {};
 
-    blobStream.on('finish', () => {
-      // The public URL can be used to directly access the file via HTTP.
-      const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURI(fileUpload.name)}?alt=media`;
-      resolve(publicUrl);
-    });
-
-    blobStream.end(file.buffer);
-  });
-}
-
-function extractName (url) {
-  var spUrl = url.split('/')
-  return spUrl[spUrl.length - 1].split('?')[0]
-}
+    res.send({success: 'Deleted'})
+  } catch (e) {
+    res.send({err: e.message});
+  }
+});
 
 module.exports = router;

@@ -1,22 +1,30 @@
 const express = require('express');
 const router = express.Router();
 const CONTACT = require('../Models/contact')
+const { authenticated } = require("../Middlewares/authentication");
+const nodemailer = require("nodemailer");
+const createEmailTemplate = require("../Templates/contactUsMail");
 
-
-/* ######## HANDLE APIs ######## */
-
-// Get All
-router.get('/', async (req, res, next) => {
-  try {
-    var contactData = await CONTACT.find({})
-    res.send(contactData)
-  } catch (e) {
-    res.send(e.message)
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_ACCOUNT,
+    pass: process.env.GMAIL_PASSWORD
   }
 });
 
-// Add New
-router.post('/', async (req, res, next) => {
+// Get All Contact Messages
+router.get('/', authenticated, async (req, res) => {
+  try {
+    var contactData = await CONTACT.find({});
+    res.send({success: contactData})
+  } catch (e) {
+    res.send({err: e.message});
+  }
+});
+
+// Add New Contact Message
+router.post('/', async (req, res) => {
   try {
     const Data = {
       fullName: req.body.fullName,
@@ -24,24 +32,33 @@ router.post('/', async (req, res, next) => {
       message: req.body.message,
       date: new Date(),
     }
-    console.log(Data)
-    const contactModel = new CONTACT(Data)
-    const contactData = await contactModel.save()
-    res.send(contactData)
+
+    const contact = await CONTACT.create(Data);
+
+    const contactUsTemplate = createEmailTemplate(Data);
+
+    const mail_content = {
+      from: "no-reply@hassanali.tk",
+      to: "7assan.3li1998@gmail.com",
+      subject: "New Contact Us Message - My Portfolio",
+      html: contactUsTemplate
+    }
+
+    transporter.sendMail(mail_content, (err, info) => { res.send({ success: contact }) });
+
   } catch (e) {
-    console.log(e)
-    res.send(e.message)
+    res.send({err: e.message});
   }
 });
 
-// Delete
-router.delete('/', async (req, res, next) => {
+// Delete Contact Message
+router.delete('/', async (req, res) => {
   try {
-    const ID = req.query.id
-    await CONTACT.findByIdAndDelete(ID)
-    res.send('Deleted')
+    await CONTACT.findByIdAndDelete(req.query.id);
+
+    res.send({success: 'Deleted'});
   } catch (e) {
-    res.send(e.message)
+    res.send({err: e.message});
   }
 });
 
