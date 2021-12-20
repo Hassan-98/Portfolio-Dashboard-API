@@ -34,7 +34,7 @@ const notAuthenticated = (req, res, next) => {
 
         next();
     } catch (e) {
-        res.send({err: "You Are Already Authorizated"});
+        next();
     }
 }
 
