@@ -2,17 +2,13 @@ const jwt = require("jsonwebtoken");
 
 const authenticated = (req, res, next) => {
     try {
-        const token = req.cookies.portfolioCurrentAdmin;
+        const authorization = req.headers["authorization"];
 
-        console.log(req.cookies);
-
-        console.log("Token: " + token);
-
-        if (!token) return res.send({err: "Authorization Required"});
+        if (!authorization) return res.send({err: "Authorization Required"});
+        
+        const token = authorization.split(" ")[1];
 
         const {user} = jwt.verify(token, process.env.JWT_SECRET);
-        
-        console.log(user);
 
         if (!user) return res.send({err: "Authorization Required"});
 
@@ -24,13 +20,21 @@ const authenticated = (req, res, next) => {
 
 const notAuthenticated = (req, res, next) => {
     try {
-        const token = req.cookies.portfolioCurrentAdmin;
+        const authorization = req.headers["authorization"];
 
-        if (token) return res.send({err: "You Are Already Authorizated"});
+        if (!authorization) next();
+        
+        const token = authorization.split(" ")[1];
+
+        if (!token) next();
+
+        const {user} = jwt.verify(token, process.env.JWT_SECRET);
+
+        if (user) return res.send({err: "You Are Already Authorizated"});
 
         next();
     } catch (e) {
-        res.send({err: e.message});
+        res.send({err: "You Are Already Authorizated"});
     }
 }
 
