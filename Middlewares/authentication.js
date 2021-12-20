@@ -22,7 +22,7 @@ const notAuthenticated = (req, res, next) => {
     try {
         const authorization = req.headers["authorization"];
 
-        if (!authorization) next();
+        if (!authorization) return next();
         
         const token = authorization.split(" ")[1];
 
