@@ -26,11 +26,7 @@ const notAuthenticated = (req, res, next) => {
         
         const token = authorization.split(" ")[1];
 
-        if (!token) next();
-
-        const {user} = jwt.verify(token, process.env.JWT_SECRET);
-
-        if (user) return res.send({err: "You Are Already Authorizated"});
+        if (token) return res.send({err: "You Are Already Authorized"});
 
         next();
     } catch (e) {
