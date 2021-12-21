@@ -84,13 +84,7 @@ router.patch("/", authenticated, multer.single("thumb"), async (req, res) => {
 
     const project = await PORTFOLIO.findById(ID);
 
-    Object.keys(req.body).forEach(key => {
-      if (key == 'priority') {
-        project[key] = (+req.body.priority)
-      } else {
-        project[key] = req.body[key];
-      }
-    });
+    Object.keys(req.body).forEach(key => project[key] = req.body[key]);
 
     var URL = null;
 
