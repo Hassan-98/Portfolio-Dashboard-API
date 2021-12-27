@@ -17,7 +17,7 @@ router.get("/", async (req, res) => {
 
     if (req.query.id) portfolioData = await PORTFOLIO.findById(req.query.id);
 
-    else portfolioData = await PORTFOLIO.find({}, null, { sort: { priority: 1 } });
+    else portfolioData = await PORTFOLIO.find({}, null, { sort: { priority: 1 }, limit: +req.query.limit });
     
     res.send({success: portfolioData});
   } catch (e) {
