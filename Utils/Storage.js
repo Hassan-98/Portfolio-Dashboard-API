@@ -38,7 +38,7 @@ const uploadImageToStorage = file => {
 
     // File Extention Filter
     const fileExtention = path.extname(file.originalname);
-    const whitelistExtentions = [".jpg", ".jpeg", ".png", ".svg"]
+    const whitelistExtentions = [".jpg", ".jpeg", ".png", ".svg", ".webp"]
     if (whitelistExtentions.indexOf(fileExtention.toLowerCase()) == -1) return reject("Image type is not supported");
     
     // Use Sharp to compress image
