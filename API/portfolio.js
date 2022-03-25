@@ -2,8 +2,7 @@ const express = require("express");
 const router = express.Router();
 const PORTFOLIO = require("../Models/portfolio");
 const Multer = require("multer");
-const { bucket, uploadImageToStorage, extractName } = require("../Utils/Storage")
-const WaitUntil = require("../Utils/Waiting");
+const { bucket, uploadImageToStorage, extractName } = require("../Utils/Storage");
 const { authenticated } = require("../Middlewares/authentication");
 
 const multer = Multer({
@@ -64,11 +63,11 @@ router.post("/view", async (req, res) => {
 
     if (!projectId) return res.send({err: "Invalid Project Id"});
 
-    const project = await PORTFOLIO.findById(projectId);
-      
-    project.views += 1;
-
-    await project.save();
+    await PORTFOLIO.findByIdAndUpdate(projectId, { 
+      $inc: {
+        views: 1
+      }
+    });
 
     res.send({success: "View Add Success"});
   } catch (e) {
@@ -117,21 +116,18 @@ router.patch("/updateOrder", authenticated, async (req, res) => {
   try {
     const newOrderedProjects = req.body;
 
-    const projects = await PORTFOLIO.find({});
+    const writes = newOrderedProjects.map(project => ({
+      updateOne: {
+        filter: {
+          _id: project._id
+        },
+        update: {
+          priority: parseInt(project.priority)
+        } 
+      }
+    }));
 
-    const editOrder = (EndWaiting) => {
-      projects.forEach(async (project, idx) => {
-        var orderedProject = newOrderedProjects.find(({_id}) => _id == project._id);
-      
-        project.priority = (+orderedProject.priority);
-  
-        await project.save();
-        
-        if (projects.length >= idx + 1) EndWaiting();
-      });
-    }
-
-    await WaitUntil(editOrder);
+    await PORTFOLIO.bulkWrite(writes);
 
     res.send({success: "Order Success"});
   } catch (e) {

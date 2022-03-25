@@ -3,6 +3,9 @@ const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const cookieParser = require("cookie-parser");
 const cors = require('cors');
+const compression = require('compression');
+const helmet = require('helmet');
+const morgan = require('morgan');
 const app = express();
 
 // ENV
@@ -19,7 +22,7 @@ mongoose.connect(process.env.DB_URI, {
 // Cross-Origin Resource Sharing
 var corsOptionsDelegate = function (req, callback) {
   // CORS Whitelist URLs
-  const whitelist = ["https://hassanali.tk", "https://admin.hassanali.tk"];
+  const whitelist = [process.env.CLIENT_URL_1, process.env.CLIENT_URL_2];
 
   if (process.env.NODE_ENV !== "production") whitelist.push("http://localhost:3000");
 
@@ -35,7 +38,28 @@ var corsOptionsDelegate = function (req, callback) {
 
 app.use(cors(corsOptionsDelegate));
 
-// IMPORT APIs
+// Disable etag and x-powered-by
+app.disable("etag").disable("x-powered-by");
+// Setting JSON in Body Of Requests
+app.use(express.json())
+// FormData Body Parser
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ 
+  limit: '50mb',
+  extended: true,
+  parameterLimit: 50000 
+}));
+// Cookie Parser
+app.use(cookieParser());
+// Req & Res Compressor
+app.use(compression());
+// Helmet Protector
+app.use(helmet());
+// Set Morgan Logger
+app.use(morgan(':method :url :status - :response-time ms'));
+
+
+// Import API Endpoints
 const statsAPI = require('./API/stats')
 const certsAPI = require('./API/certs')
 const clientsAPI = require('./API/clients')
@@ -45,17 +69,8 @@ const skillsAPI = require('./API/skills')
 const contactFormAPI = require('./API/contact')
 const authAPI = require('./API/auth')
 
-// Set Express Configrations
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-// Body Parser
-app.use(bodyParser.urlencoded({ extended: true }))
-app.use(bodyParser.json())
-// Cookie Parser
-app.use(cookieParser());
 
-
-// Set APIs
+// Set API Endpoints
 app.use('/api/stats/', statsAPI)
 app.use('/api/certs/', certsAPI)
 app.use('/api/clients/', clientsAPI)

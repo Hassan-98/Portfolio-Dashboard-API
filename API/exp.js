@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const EXPS = require('../Models/exp');
-const WaitUntil = require("../Utils/Waiting");
 const { authenticated } = require("../Middlewares/authentication");
 
 // Get All Experiences
@@ -58,21 +57,18 @@ router.patch("/updateOrder", authenticated, async (req, res) => {
   try {
     const newOrderedExps = req.body;
 
-    const exps = await CLIENTS.find({});
+    const writes = newOrderedExps.map(exp => ({
+      updateOne: {
+        filter: {
+          _id: exp._id
+        },
+        update: {
+          priority: parseInt(exp.priority)
+        } 
+      }
+    }));
 
-    const editOrder = (EndWaiting) => {
-      exps.forEach(async (exp, idx) => {
-        var orderedExp = newOrderedExps.find(({_id}) => _id == exp._id);
-      
-        exp.priority = (+orderedExp.priority);
-  
-        await exp.save();
-        
-        if (exps.length >= idx + 1) EndWaiting();
-      });
-    }
-
-    await WaitUntil(editOrder);
+    await EXPS.bulkWrite(writes);
 
     res.send({success: "Order Success"});
   } catch (e) {

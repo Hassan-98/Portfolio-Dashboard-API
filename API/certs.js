@@ -3,7 +3,6 @@ const router = express.Router();
 const CERT = require('../Models/cert')
 const Multer = require('multer');
 const { bucket, uploadImageToStorage, extractName } = require("../Utils/Storage");
-const WaitUntil = require("../Utils/Waiting");
 const { authenticated } = require("../Middlewares/authentication");
 
 const multer = Multer({
@@ -105,22 +104,19 @@ router.patch('/', authenticated, multer.single('cert'), async (req, res) => {
 router.patch("/updateOrder", authenticated, async (req, res) => {
   try {
     const newOrderedCerts = req.body;
+    
+    const writes = newOrderedCerts.map(cert => ({
+      updateOne: {
+        filter: {
+          _id: cert._id
+        },
+        update: {
+          priority: parseInt(cert.priority)
+        } 
+      }
+    }));
 
-    const certs = await CERT.find({});
-
-    const editOrder = (EndWaiting) => {
-      certs.forEach(async (cert, idx) => {
-        var orderedCert = newOrderedCerts.find(({_id}) => _id == cert._id);
-      
-        cert.priority = (+orderedCert.priority);
-  
-        await cert.save();
-        
-        if (certs.length >= idx + 1) EndWaiting();
-      });
-    }
-
-    await WaitUntil(editOrder);
+    await CERT.bulkWrite(writes);
 
     res.send({success: "Order Success"});
   } catch (e) {

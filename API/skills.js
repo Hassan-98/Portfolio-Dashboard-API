@@ -3,7 +3,6 @@ const router = express.Router();
 const SKILL = require('../Models/skills')
 const Multer = require('multer');
 const { bucket, uploadImageToStorage, extractName } = require("../Utils/Storage")
-const WaitUntil = require("../Utils/Waiting");
 const { authenticated } = require("../Middlewares/authentication");
 
 const multer = Multer({
@@ -98,21 +97,18 @@ router.patch("/updateOrder", authenticated, async (req, res) => {
   try {
     const newOrderedSkills = req.body;
 
-    const skills = await SKILL.find({});
+    const writes = newOrderedSkills.map(skill => ({
+      updateOne: {
+        filter: {
+          _id: skill._id
+        },
+        update: {
+          priority: parseInt(skill.priority)
+        } 
+      }
+    }));
 
-    const editOrder = (EndWaiting) => {
-      skills.forEach(async (skill, idx) => {
-        var orderedSkill = newOrderedSkills.find(({_id}) => _id == skill._id);
-      
-        skill.priority = (+orderedSkill.priority);
-  
-        await skill.save();
-        
-        if (skills.length >= idx + 1) EndWaiting();
-      });
-    }
-
-    await WaitUntil(editOrder);
+    await SKILL.bulkWrite(writes);
 
     res.send({success: "Order Success"});
   } catch (e) {
