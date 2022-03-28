@@ -7,7 +7,7 @@
     "dev": "nodemon app.js --watch ./"
   },
   "dependencies": {
-    "body-parser": "1.19.0",
+    "body-parser": "1.19.2",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
