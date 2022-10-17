@@ -6,10 +6,11 @@ const nodemailer = require("nodemailer");
 const createEmailTemplate = require("../Templates/contactUsMail");
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: "smtp.mailgun.org",
+  port: 587,
   auth: {
-    user: process.env.GMAIL_ACCOUNT,
-    pass: process.env.GMAIL_PASSWORD
+    user: process.env.MAILGUN_USERNAME,
+    pass: process.env.MAILGUN_PASSWORD
   }
 });
 
@@ -44,7 +45,12 @@ router.post('/', async (req, res) => {
       html: contactUsTemplate
     }
 
-    transporter.sendMail(mail_content, (err, info) => { res.send({ success: contact }) });
+    transporter.sendMail(mail_content, (err, info) => {
+      if (err) {
+        return res.status(500).json({ err });
+      }
+      res.send({ success: contact })
+    });
 
   } catch (e) {
     res.send({err: e.message});

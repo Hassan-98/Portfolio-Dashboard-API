@@ -17,6 +17,8 @@ mongoose.connect(process.env.DB_URI, {
   useUnifiedTopology: true,
   useCreateIndex: true,
   useFindAndModify: true
+}).then(() => {
+  console.log(`Database connected successfully`)
 })
 
 // Cross-Origin Resource Sharing
