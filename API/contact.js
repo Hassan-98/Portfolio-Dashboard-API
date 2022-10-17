@@ -15,9 +15,9 @@ const transporter = nodemailer.createTransport({
 });
 
 // Get All Contact Messages
-router.get('/', authenticated, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    var contactData = await CONTACT.find({});
+    var contactData = await CONTACT.find({}, null, { sort: { _id: -1 } });
     res.send({success: contactData})
   } catch (e) {
     res.send({err: e.message});
