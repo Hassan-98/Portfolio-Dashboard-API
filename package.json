@@ -7,13 +7,13 @@
     "dev": "nodemon app.js --watch ./"
   },
   "dependencies": {
-    "body-parser": "1.19.0",
+    "body-parser": "1.19.2",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dayjs": "^1.10.7",
     "debug": "~2.6.9",
-    "express": "~4.16.1",
+    "express": "~4.17.3",
     "firebase-admin": "^10.0.2",
     "helmet": "^5.0.2",
     "jsonwebtoken": "^8.5.1",
