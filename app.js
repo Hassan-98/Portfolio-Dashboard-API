@@ -9,24 +9,15 @@ const morgan = require('morgan');
 const app = express();
 
 // ENV
-if (process.env.NODE_ENV !== "production") require("dotenv").config();
+if (process.env.NODE_ENV === "development") require("dotenv").config();
 
-// Connect Mongoose Database
-mongoose.connect(process.env.DB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  useCreateIndex: true,
-  useFindAndModify: true
-}).then(() => {
-  console.log(`Database connected successfully`)
-})
 
 // Cross-Origin Resource Sharing
 var corsOptionsDelegate = function (req, callback) {
   // CORS Whitelist URLs
   const whitelist = [process.env.CLIENT_URL_1, process.env.CLIENT_URL_2];
 
-  if (process.env.NODE_ENV !== "production") whitelist.push("http://localhost:3000");
+  if (process.env.NODE_ENV === "development") whitelist.push("http://localhost:3000");
 
   var corsOptions;
   if (whitelist.indexOf(req.header('Origin')) !== -1) {
@@ -84,6 +75,15 @@ app.use('/api/auth/', authAPI)
 
 const PORT = process.env.PORT || 4001;
 
-app.listen(PORT, () => console.log(`Server Started at Port ${PORT}`));
+// Connect Mongoose Database
+mongoose.connect(process.env.DB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+  useCreateIndex: true,
+  useFindAndModify: true
+}).then(() => {
+  console.log(`Database connected successfully`);
+  app.listen(PORT, () => console.log(`Server Started at Port ${PORT}`));
+});
 
 module.exports = app;
